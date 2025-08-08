@@ -1,0 +1,209 @@
+/* *************************************************
+on github:  shula/show-all-gutenberg-settings 
+reason:
+wordpress devs hide settings to appeal to novice users. WTF.  But this destroys usability for everyone else. This code should continuously reveal all settings in the designer. FTW
+Reveals all hidden block design settings and options in WordPress Gutenberg editor
+ 
+this code comes from AI, and still needs fixing.
+
+Call this function after selecting a block to expose advanced design controls,  or automatically by a hook
+
+// Usage examples:
+// const observer = enableContinuousSettingsReveal();
+
+// To run automatically when a block is selected:
+if (typeof wp !== 'undefined' && wp.data) {
+    wp.data.subscribe(() => {
+        const selectedBlock = wp.data.select('core/block-editor').getSelectedBlockClientId();
+        if (selectedBlock) {
+            setTimeout(revealBlockDesignSettings, 200);
+        }
+    });
+}
+
+ 
+ */
+
+function revealBlockDesignSettings() {
+    // Check if we're in the WordPress block editor
+    if (typeof wp === 'undefined' || !wp.data) {
+        console.warn('WordPress block editor not detected');
+        return false;
+    }
+
+    const { select, dispatch } = wp.data;
+    
+    try {
+        // Get the currently selected block
+        const selectedBlockClientId = select('core/block-editor').getSelectedBlockClientId();
+        
+        if (!selectedBlockClientId) {
+            console.warn('No block is currently selected');
+            return false;
+        }
+
+        const selectedBlock = select('core/block-editor').getBlock(selectedBlockClientId);
+        console.log('Selected block:', selectedBlock);
+
+        // Reveal hidden panels in the block inspector
+        const hiddenPanels = [
+            'color',
+            'background',
+            'typography',
+            'dimensions',
+            'border',
+            'spacing',
+            'position',
+            'layout',
+            'effects',
+            'css',
+            'advanced'
+        ];
+
+        // Enable all design-related panels
+        hiddenPanels.forEach(panelName => {
+            try {
+                dispatch('core/edit-post').toggleEditorPanelEnabled(`core/${panelName}`);
+                dispatch('core/edit-post').toggleEditorPanelOpened(`core/${panelName}`);
+            } catch (e) {
+                // Some panels might not exist for all block types
+                console.log(`Panel ${panelName} not available for this block type`);
+            }
+        });
+
+        // Force show advanced settings
+        const advancedControls = document.querySelectorAll('[class*="advanced"], [class*="inspector-advanced"], [class*="block-editor-advanced"]');
+        advancedControls.forEach(control => {
+            control.style.display = 'block';
+            control.style.visibility = 'visible';
+            control.style.opacity = '1';
+        });
+
+        // Show hidden CSS class and ID fields
+        const hiddenInputs = document.querySelectorAll('input[type="text"][style*="display: none"], input[type="text"][hidden]');
+        hiddenInputs.forEach(input => {
+            input.style.display = 'block';
+            input.removeAttribute('hidden');
+            if (input.closest('.components-base-control')) {
+                input.closest('.components-base-control').style.display = 'block';
+            }
+        });
+
+        // Reveal dimension controls (width, height, padding, margin)
+        const dimensionControls = document.querySelectorAll('[class*="dimensions"], [class*="spacing"], [class*="size-control"]');
+        dimensionControls.forEach(control => {
+            control.style.display = 'block';
+            control.style.visibility = 'visible';
+        });
+
+        // Show color and background controls
+        const colorControls = document.querySelectorAll('[class*="color-palette"], [class*="background"], [class*="gradient"]');
+        colorControls.forEach(control => {
+            control.style.display = 'block';
+            control.style.visibility = 'visible';
+        });
+
+        // Force visibility of typography controls
+        const typographyControls = document.querySelectorAll('[class*="typography"], [class*="font"], [class*="text-decoration"]');
+        typographyControls.forEach(control => {
+            control.style.display = 'block';
+            control.style.visibility = 'visible';
+        });
+
+        // Show border controls
+        const borderControls = document.querySelectorAll('[class*="border"], [class*="radius"]');
+        borderControls.forEach(control => {
+            control.style.display = 'block';
+            control.style.visibility = 'visible';
+        });
+
+        // Reveal position controls (if available)
+        const positionControls = document.querySelectorAll('[class*="position"], [class*="z-index"]');
+        positionControls.forEach(control => {
+            control.style.display = 'block';
+            control.style.visibility = 'visible';
+        });
+
+        // Force open all collapsible panels in the sidebar
+        const collapsiblePanels = document.querySelectorAll('.components-panel__body:not(.is-opened) .components-panel__body-title button');
+        collapsiblePanels.forEach(button => {
+            if (!button.getAttribute('aria-expanded') || button.getAttribute('aria-expanded') === 'false') {
+                button.click();
+            }
+        });
+
+        // Show any hidden toggle controls
+        const hiddenToggles = document.querySelectorAll('[class*="toggle-control"][style*="display: none"]');
+        hiddenToggles.forEach(toggle => {
+            toggle.style.display = 'flex';
+            toggle.style.visibility = 'visible';
+        });
+
+        // Enable custom CSS field if hidden
+        const customCSSField = document.querySelector('textarea[placeholder*="CSS"], textarea[class*="css"], input[placeholder*="Additional CSS"]');
+        if (customCSSField) {
+            customCSSField.style.display = 'block';
+            customCSSField.removeAttribute('hidden');
+            if (customCSSField.closest('.components-base-control')) {
+                customCSSField.closest('.components-base-control').style.display = 'block';
+            }
+        }
+
+        // Remove any CSS rules that might be hiding advanced options
+        const styleOverrides = document.createElement('style');
+        styleOverrides.innerHTML = `
+            .block-editor-inspector-controls [hidden] {
+                display: block !important;
+            }
+            .components-panel__body {
+                display: block !important;
+            }
+            .block-editor-block-inspector__advanced {
+                display: block !important;
+            }
+            [class*="advanced-controls"] {
+                display: block !important;
+                visibility: visible !important;
+            }
+        `;
+        document.head.appendChild(styleOverrides);
+
+        console.log('✅ All available design settings have been revealed for the selected block');
+        return true;
+
+    } catch (error) {
+        console.error('Error revealing block settings:', error);
+        return false;
+    }
+}
+
+/**
+ * Alternative function that uses mutation observer to continuously reveal settings
+ * Useful for dynamic content that loads after initial page load
+ */
+function enableContinuousSettingsReveal() {
+    const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+            if (mutation.type === 'childList') {
+                // Check if new inspector controls were added
+                const newControls = mutation.target.querySelectorAll('[class*="inspector-controls"], [class*="block-editor-inspector"]');
+                if (newControls.length > 0) {
+                    setTimeout(revealBlockDesignSettings, 100);
+                }
+            }
+        });
+    });
+
+    // Start observing the sidebar for changes
+    const sidebar = document.querySelector('.edit-post-sidebar, .interface-interface-skeleton__sidebar');
+    if (sidebar) {
+        observer.observe(sidebar, {
+            childList: true,
+            subtree: true
+        });
+        console.log('🔍 Continuous settings reveal enabled');
+    }
+
+    return observer;
+}
+
